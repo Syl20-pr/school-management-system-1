@@ -1,6 +1,6 @@
 <?php
 
-return [
+/* return [
     '3ème C' => 'Mme KOUMAKO',
     '3ème D' => 'Mr KONDI',
     '3ème B' => 'Mme BISSALOUWE',
@@ -28,4 +28,35 @@ return [
     'Tle D4-2' => 'Mme KOSSI',
     'Tle A4-1' => 'Mr POTCHOWAÏ',
     'Tle A4-2' => 'Mr GOTA',
-];
+]; prof principaux 2024-2025*/
+
+return [
+            '3ème C' => 'Mme TAKASSI',
+            '3ème D' => 'Mr OGBONE',
+            '3ème B' => 'Mme KOUMAKO',
+            '3ème E' => 'Mr AGBEMEBIO',
+            '3ème A' => 'Mr OURO-TAGBA',
+            '4ème A' => 'Mme KEGBENA',
+            '4ème B' => 'Mr KERIM',
+            '4ème C' => 'Mme KIDIYO',
+            //'4ème D' => 'Mr KOLANI',
+            '5ème A' => 'Mr YOMBO',
+            '5ème B' => 'Mr KOSSI',
+            '5ème C' => 'Mr ABLIMI',
+            '5ème D' => 'Mme BISSALOUWE',
+            '6ème A' => 'Mme KPELI-POUKPEZI',
+            '6ème B' => 'Mr MINDIZINA',
+            '6ème C' => 'Mr AMEGNONA',
+            '6ème D' => 'Mme KASSOTE',
+            '2nd A4-1' => 'Mr GOTA',
+            '2nd A4-2' => 'Mr KOLANI',
+            '2nd CD' => 'Mr OUDANE',
+            '1ère A4-1' => 'Mr NEBADI',
+            '1ère A4-2' => 'Mr DJIGUI',
+            '1ère A4-3' => 'Mme TCHAKOUN',
+            '1ere D4' => 'Mr de SOUZA',
+            'Tle D4-1' => 'Mr ZABOUH',
+            'Tle D4-2' => 'Mme KOSSI',
+            'Tle A4-1' => 'Mr POTCHOWAÏ',
+            'Tle A4-2' => 'Mr BOKO',
+        ];//prof principaux 2025-2026

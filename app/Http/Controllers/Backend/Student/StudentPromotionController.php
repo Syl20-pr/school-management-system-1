@@ -10,7 +10,7 @@ use App\Models\StudentClass;
 use App\Models\StudentYear;
 use App\Models\User;
 use App\Models\StudentPromotionHistory;
-use App\Services\StudentPromotionService;
+use App\Services\StudentPromotionService;  
 use Illuminate\Http\Request;
 
 use Illuminate\Support\Facades\Log;

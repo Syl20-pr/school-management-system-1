@@ -112,9 +112,10 @@ class BulletinCalculationService
                         );
                     }
                     //\Log::info("✅ Données étudiants calculées: " . count($studentResults) . " résultats");
-                    
+                    // ✅ CORRECTION : TRI PAR ORDRE ALPHABÉTIQUE
+                    $sortedStudentResults = collect($studentResults)->sortBy('student_name', SORT_NATURAL|SORT_FLAG_CASE);
                     // Ajouter tous les étudiants d'un coup
-                    foreach ($studentResults as $studentData) {
+                    foreach ($sortedStudentResults as $studentData) {
                         $bulletinData->addStudent($studentData);
                     }
                     //\Log::info("✅ Étudiants ajoutés à BulletinData");
@@ -126,10 +127,6 @@ class BulletinCalculationService
                     
                     \Log::info("🎉 CALCUL BULLETIN TERMINÉ AVEC SUCCÈS");
                     return $bulletinData; */
-                    //\Log::info("🏆 Calcul des rangs et statistiques...");
-                    $this->rankingService->calculateRanksAndStatistics($bulletinData);
-                    //\Log::info("✅ Rangs et statistiques calculés");
-
                     // ✅ Ajouter les matières dans BulletinData
                     if (method_exists($bulletinData, 'setSubjects')) {
                         $bulletinData->setSubjects($subjects);
@@ -139,6 +136,11 @@ class BulletinCalculationService
                         $bulletinData->subjects = $subjects;
                         //\Log::info("✅ Matières ajoutées à BulletinData (attribut direct)");
                     }
+                    //\Log::info("🏆 Calcul des rangs et statistiques...");
+                    $this->rankingService->calculateRanksAndStatistics($bulletinData);
+                    //\Log::info("✅ Rangs et statistiques calculés");
+
+                    
 
                     //\Log::info("🎉 CALCUL BULLETIN TERMINÉ AVEC SUCCÈS");
                     return $bulletinData;
@@ -328,11 +330,12 @@ class BulletinCalculationService
             }
         });
     } */
-   protected function getAllStudentsDataOptimized($yearId, $classId, $termTypeId)
+/*    protected function getAllStudentsDataOptimized($yearId, $classId, $termTypeId)
 {
     //\Log::info("🔍 GET ALL STUDENTS DATA OPTIMIZED - Year: $yearId, Class: $classId, Term: $termTypeId");
     
-    $cacheKey = "students_marks_{$yearId}_{$classId}_{$termTypeId}";
+    //$cacheKey = "students_marks_{$yearId}_{$classId}_{$termTypeId}";
+    $cacheKey = "BULLETIN:students_marks:{$yearId}:{$classId}:{$termTypeId}";
     
     return Cache::remember($cacheKey, 1800, function() use ($yearId, $classId, $termTypeId) {
         try {
@@ -352,7 +355,12 @@ class BulletinCalculationService
             }
 
             // 2. Récupérer les étudiants qui ont des notes
-            $studentIds = $allMarks->pluck('student_id')->unique();
+            //$studentIds = $allMarks->pluck('student_id')->unique();
+            $studentIds = AssignStudent::where('year_id', $yearId)
+                ->where('class_id', $classId)
+                ->pluck('student_id')
+                ->unique();
+
             \Log::info("👥 " . $studentIds->count() . " étudiants avec des notes");
 
             $students = User::whereIn('id', $studentIds)
@@ -365,7 +373,8 @@ class BulletinCalculationService
             $classSubjects = AssignSubject::where('class_id', $classId)
                 ->with('school_subject:id,name')
                 ->get()
-                ->keyBy('subject_id');
+                ->keyBy('id'); // assign_subject_id
+                //->keyBy('subject_id');
                 
             \Log::info("📚 Matières de la classe: " . $classSubjects->count() . " matières trouvées");
 
@@ -376,16 +385,25 @@ class BulletinCalculationService
 
             // 4. Récupérer les assign_subject_id utilisés dans les notes
             $usedAssignSubjectIds = $allMarks->pluck('assign_subject_id')->unique();
+            $classSubjectIds = $classSubjects->pluck('subject_id')->unique();
+
+            \Log::info("🎯 CORRESPONDANCE DES IDS - CRITIQUE:");
+            \Log::info("   AssignSubject IDs dans notes: " . $usedAssignSubjectIds->implode(', '));
+            \Log::info("   Subject IDs des matières de la classe: " . $classSubjectIds->implode(', '));
+
             //\Log::info("🎯 AssignSubject IDs utilisés dans les notes: " . $usedAssignSubjectIds->implode(', '));
 
             // 5. Vérifier la correspondance entre les matières de la classe et celles utilisées dans les notes
-            $matchingSubjects = $classSubjects->whereIn('subject_id', $usedAssignSubjectIds);
-            //\Log::info("🔗 Correspondances trouvées: " . $matchingSubjects->count() . " matières");
+            $matchingSubjects = $classSubjects->filter(function ($subject) use ($usedAssignSubjectIds) {
+                // Ici, $subject->subject_id doit correspondre à un assign_subject_id dans les notes
+                return $usedAssignSubjectIds->contains($subject->id); // ← CORRECTION CLAIRE
+            });
+
+            \Log::info("🔗 Correspondances trouvées: " . $matchingSubjects->count() . " matières");
 
             if ($matchingSubjects->isEmpty()) {
-                \Log::error("❌ AUCUNE CORRESPONDANCE entre les matières de la classe et les assign_subject_id des notes!");
-                //\Log::error("   AssignSubject IDs dans notes: " . $usedAssignSubjectIds->implode(', '));
-                //\Log::error("   AssignSubject IDs de la classe: " . $classSubjects->pluck('id')->implode(', '));
+                \Log::error("❌ CRITIQUE: AUCUNE CORRESPONDANCE assign_subject_id → subject_id !");
+                \Log::error("   Cela explique pourquoi les notes sont toujours nulles.");
             }
 
             // 6. Récupérer les types d'examen
@@ -405,12 +423,20 @@ class BulletinCalculationService
                 $studentMarks = $allMarks->where('student_id', $studentId);
                 
                 // Grouper par assign_subject_id
-                $marksBySubject = $studentMarks->groupBy('assign_subject_id');
+                //$marksBySubject = $studentMarks->groupBy('assign_subject_id');
+                $marksBySubject = $studentMarks->groupBy(function ($mark) {
+                    return (int) $mark->assign_subject_id;
+                });
+
                 
                 $studentsData[$studentId] = [
                     'student' => $students[$studentId],
                     'marks' => $marksBySubject,
-                    'group' => AssignStudent::where('student_id', $studentId)->first(),
+                    //'group' => AssignStudent::where('student_id', $studentId)->first(),
+                    'group' => AssignStudent::where('student_id', $studentId)
+                        ->where('class_id', $classId)
+                        ->where('year_id', $yearId)
+                        ->first(),
                     'examTypes' => $examTypes,
                     'assignSubjects' => $classSubjects // ✅ Utiliser les matières de la classe
                 ];
@@ -431,6 +457,21 @@ class BulletinCalculationService
                 }
             }
 
+            // 🔍 DEBUG FINAL POUR DIAGNOSTIQUER LE PROBLÈME
+            if (!empty($studentsData)) {
+                $firstStudentId = array_key_first($studentsData);
+                $firstStudent = $studentsData[$firstStudentId];
+                
+                \Log::info("🧪 TEST FINAL - ÉTUDIANT: " . $firstStudent['student']->name);
+                \Log::info("   Nombre de matières dans classSubjects: " . $classSubjects->count());
+                
+                foreach ($classSubjects as $assignSubjectId => $subject) {
+                    $notes = $firstStudent['marks']->get($assignSubjectId, collect());
+                    \Log::info("   📖 " . ($subject->school_subject->name ?? 'Inconnu') . 
+                            " (ID:{$assignSubjectId}, SubjectID:{$subject->subject_id}) - Notes: " . $notes->count());
+                }
+            }
+
             return $studentsData;
             
         } catch (\Exception $e) {
@@ -441,6 +482,101 @@ class BulletinCalculationService
             throw $e;
         }
     });
+} */
+protected function getAllStudentsDataOptimized($yearId, $classId, $termTypeId)
+{
+    $cacheKey = "BULLETIN:students_marks:{$yearId}:{$classId}:{$termTypeId}";
+    
+    return Cache::remember($cacheKey, 1800, function() use ($yearId, $classId, $termTypeId) {
+        \Log::info("🔧 VERSION CORRIGÉE - Gestion de l'incohérence assign_subject_id");
+
+        // 1. Récupérer les étudiants
+        $studentIds = AssignStudent::where('year_id', $yearId)
+            ->where('class_id', $classId)
+            ->pluck('student_id')
+            ->unique();
+            
+        $students = User::whereIn('id', $studentIds)
+            ->get(['id', 'name', 'gender', 'statusclass'])
+            ->keyBy('id');
+
+        // 2. Récupérer les matières de la classe
+        $classSubjects = AssignSubject::where('class_id', $classId)
+            ->with('school_subject:id,name')
+            ->get()
+            ->keyBy('id');
+        
+        // 3. Créer un mapping subject_id → assign_subject_id
+        $subjectIdToAssignId = $classSubjects->pluck('id', 'subject_id');
+        \Log::info("🗺️ Mapping subject_id → assign_subject_id: " . json_encode($subjectIdToAssignId->toArray()));
+
+        // 4. Récupérer toutes les notes
+        $allMarks = StudentMarks::where('year_id', $yearId)
+            ->where('class_id', $classId)
+            ->where('term_type_id', $termTypeId)
+            ->whereIn('student_id', $studentIds)
+            ->get();
+            
+        \Log::info("📊 Notes trouvées: " . $allMarks->count());
+        
+        // DEBUG: Vérifier les assign_subject_id dans les notes
+        $uniqueAssignIds = $allMarks->pluck('assign_subject_id')->unique();
+        \Log::info("🔍 assign_subject_id uniques dans les notes: " . $uniqueAssignIds->implode(', '));
+
+        // 5. Organiser les données par étudiant
+        $studentsData = [];
+        
+        foreach ($studentIds as $studentId) {
+            if (!isset($students[$studentId])) continue;
+
+            // Notes de cet étudiant
+            $studentMarks = $allMarks->where('student_id', $studentId);
+            
+            // Organiser par assign_subject_id CORRECT
+            $marksBySubject = collect();
+            foreach ($studentMarks as $mark) {
+                // Convertir le subject_id (dans assign_subject_id) en vrai assign_subject_id
+                $assignSubjectId = $subjectIdToAssignId[$mark->assign_subject_id] ?? null;
+                
+                if ($assignSubjectId) {
+                    if (!isset($marksBySubject[$assignSubjectId])) {
+                        $marksBySubject[$assignSubjectId] = collect();
+                    }
+                    $marksBySubject[$assignSubjectId]->push($mark);
+                } else {
+                    \Log::warning("⚠️ Note sans correspondance: assign_subject_id={$mark->assign_subject_id} pour étudiant {$studentId}");
+                }
+            }
+
+            $studentsData[$studentId] = [
+                'student' => $students[$studentId],
+                'marks' => $marksBySubject,
+                'group' => AssignStudent::where('student_id', $studentId)
+                    ->where('class_id', $classId)
+                    ->where('year_id', $yearId)
+                    ->first(),
+                'assignSubjects' => $classSubjects,
+                'subjectIdToAssignId' => $subjectIdToAssignId // Pour référence
+            ];
+        }
+
+        // DEBUG: Vérifier un étudiant
+        if (!empty($studentsData)) {
+            $firstKey = array_key_first($studentsData);
+            $firstStudent = $studentsData[$firstKey];
+            
+            \Log::info("🧪 TEST FINAL - Étudiant: " . $firstStudent['student']->name);
+            \Log::info("   Nombre de matières avec notes: " . $firstStudent['marks']->count());
+            
+            foreach ($firstStudent['marks'] as $assignSubjectId => $marks) {
+                $subject = $classSubjects->get($assignSubjectId);
+                $subjectName = $subject ? ($subject->school_subject->name ?? "ID:$assignSubjectId") : "INCONNU";
+                \Log::info("      📊 {$subjectName} - {$marks->count()} note(s)");
+            }
+        }
+
+        return $studentsData;
+    });
 }
     
     /**
@@ -448,12 +584,14 @@ class BulletinCalculationService
      */
     protected function getClassSubjectsWithCache($classId)
     {
-        $cacheKey = "class_subjects_{$classId}";
+        //$cacheKey = "class_subjects_{$classId}";
+        $cacheKey = "BULLETIN:class_subjects:{$classId}";
         
         return Cache::remember($cacheKey, 86400, function() use ($classId) { // 24 heures
             return AssignSubject::where('class_id', $classId)
                 ->with(['school_subject:id,name'])
-                ->get(['id', 'subject_id', 'class_id', 'subjective_mark']);
+                ->get(['id', 'subject_id', 'class_id', 'subjective_mark'])
+                ->keyBy('id'); // ✅ assign_subject_id;
         });
     }
     
@@ -474,25 +612,41 @@ class BulletinCalculationService
         $totalWeightedSum = 0;
         $totalCoefficientSum = 0;
 
-        foreach ($subjects as $subject) {
+        foreach ($subjects as $assignSubject) {
             // Vérifier si la matière doit être sautée selon le groupe
-            if (($group_id == 5 && $subject->subject_id == 10) || ($group_id == 4 && $subject->subject_id == 17)) {
+            if (($group_id == 5 && $assignSubject->subject_id == 10) || ($group_id == 4 && $assignSubject->subject_id == 17)) {
                 continue;
             }
 
             // ✅ OPTIMISATION : Récupération des notes depuis les données préchargées
-            $subjectMarks = $this->calculateSubjectMarksOptimized(
-                $studentMarks->get($subject->subject_id, collect()), 
-                $termTypeId
-            );
+            //$subjectMarks = $this->calculateSubjectMarksOptimized(
+                //$studentMarks->get($subject->subject_id, collect()), 
+                //$studentMarks->get($assignSubject->id, collect()), // ✅ assign_subject_id
+            //    $studentMarks->get($assignSubject->subject_id, collect()),
+            //    $termTypeId
+            //);
+            $marksForSubject = $studentData['marks']->get($assignSubject->id, collect());
+
+            \Log::info("🔍 calculateStudentDataOptimized - Matière: " . 
+                  ($assignSubject->school_subject->name ?? 'N/A') . 
+                  ", assignSubject->id: {$assignSubject->id}, " .
+                  "notes count: " . $marksForSubject->count());
+                  
+            $subjectMarks = $this->calculateSubjectMarksOptimized($marksForSubject, $termTypeId);
 
             $moyenneClasse = $subjectMarks['moyenne_classe'];
             $moyenneCompo = $subjectMarks['moyenne_compo'];
             $averageMarks = $subjectMarks['moyenne_finale'];
 
-            $subjectiveMarkCoefficient = $subject->subjective_mark ?? 0;
-            $isEPS = optional($subject->school_subject)->name === 'E.P.S';
-            $isInapte = $this->isStudentInapteOptimized($studentMarks->get($subject->id, collect()));
+            $subjectiveMarkCoefficient = $assignSubject->subjective_mark ?? 0;
+            $isEPS = optional($assignSubject->school_subject)->name === 'E.P.S';
+            //$isInapte = $this->isStudentInapteOptimized($studentMarks->get($assignSubject->id, collect()));
+            //$isInapte = $this->isStudentInapteOptimized(
+                //$studentMarks->get($assignSubject->id, collect()) // ✅ OK APRÈS FIX 3
+            //    $studentMarks->get($assignSubject->subject_id, collect())
+            //);
+            $isInapte = $this->isStudentInapteOptimized($marksForSubject);
+
 
             if ($isEPS && $isInapte) {
                 $subjectMarks = [
@@ -519,11 +673,11 @@ class BulletinCalculationService
                 }
             }
 
-            $teacher = $this->getSubjectTeacher($subject->id, $yearId, $classId);
+            $teacher = $this->getSubjectTeacher($assignSubject->id, $yearId, $classId);
 
             $subjectData[] = [
-                'subject_id' => $subject->subject_id,
-                'subject_name' => optional($subject->school_subject)->name ?? 'N/A',
+                'subject_id' => $assignSubject->subject_id,
+                'subject_name' => optional($assignSubject->school_subject)->name ?? 'N/A',
                 'moyenne_classe' => $subjectMarks['moyenne_classe'],
                 'moyenne_compo' => $subjectMarks['moyenne_compo'],
                 'average_marks' => $subjectMarks['moyenne_finale'],
@@ -798,16 +952,16 @@ class BulletinCalculationService
             $group = AssignStudent::where('student_id', $studentId)->first();
             $group_id = $group ? $group->group_id : null;
 
-            foreach ($subjects as $subject) {
-                if (($group_id == 5 && $subject->subject_id == 10) || ($group_id == 4 && $subject->subject_id == 17)) {
+            foreach ($subjects as $assignSubject) {
+                if (($group_id == 5 && $assignSubject->subject_id == 10) || ($group_id == 4 && $assignSubject->subject_id == 17)) {
                     continue;
                 }
-                
-                $subjectMarks = $this->calculateSubjectMarksForTerm($studentId, $yearId, $classId, $subject->subject_id, $termTypeId);
+
+                $subjectMarks = $this->calculateSubjectMarksForTerm($studentId, $yearId, $classId, $assignSubject->subject_id, $termTypeId);
                 $averageMarks = $subjectMarks['moyenne_finale'];
 
                 if (is_numeric($averageMarks)) {
-                    $subjectiveMarkCoefficient = $subject->subjective_mark ?? 0;
+                    $subjectiveMarkCoefficient = $assignSubject->subjective_mark ?? 0;
                     $totalWeightedSum += $subjectiveMarkCoefficient * $averageMarks;
                     $totalCoefficientSum += $subjectiveMarkCoefficient;
                 }
@@ -1176,35 +1330,65 @@ protected function calculateAnnualRankOptimized($studentId, $yearId, $classId, $
 
     protected function getPrincipalTeacher($className)
     {
+        // $principalTeachers = [
+        //     '3ème C' => 'Mme KOUMAKO',
+        //     '3ème D' => 'Mr KONDI',
+        //     '3ème B' => 'Mme BISSALOUWE',
+        //     '3ème E' => 'Mr AGBEMEBIO',
+        //     '3ème A' => 'Mr OURO-TAGBA',
+        //     '4ème A' => 'Mr AVEGAN',
+        //     '4ème B' => 'Mr de SOUZA',
+        //     '4ème C' => 'Mr AMEGNONA',
+        //     '4ème D' => 'Mr KOLANI',
+        //     '5ème A' => 'Mr YOMBO',
+        //     '5ème B' => 'Mme KASSOTE',
+        //     '5ème C' => 'Mme KPELI-POUKPESSI',
+        //     '5ème D' => 'Mr KERIM',
+        //     '6ème A' => 'Mr OGBONE',
+        //     '6ème B' => 'Mr DOLOU',
+        //     '6ème C' => 'Mme KEGBENA',
+        //     '6ème D' => 'Mr MINDIZINA',
+        //     '2nd A4-1' => 'Mr NEBADI',
+        //     '2nd A4-2' => 'Mr DJIGUI',
+        //     '2nd CD' => 'Mr ZABOUH',
+        //     '1ère A4-1' => 'Mme TCHAKOUN',
+        //     '1ère A4-2' => 'Mme TAKASSI',
+        //     '1ere D4' => 'Mr LAMBONI',
+        //     'Tle D4-1' => 'Mr OUDANE',
+        //     'Tle D4-2' => 'Mme KOSSI',
+        //     'Tle A4-1' => 'Mr POTCHOWAÏ',
+        //     'Tle A4-2' => 'Mr GOTA',
+        // ] 2024-2025;
         $principalTeachers = [
-            '3ème C' => 'Mme KOUMAKO',
-            '3ème D' => 'Mr KONDI',
-            '3ème B' => 'Mme BISSALOUWE',
+            '3ème C' => 'Mme TAKASSI',
+            '3ème D' => 'Mr OGBONE',
+            '3ème B' => 'Mme KOUMAKO',
             '3ème E' => 'Mr AGBEMEBIO',
             '3ème A' => 'Mr OURO-TAGBA',
-            '4ème A' => 'Mr AVEGAN',
-            '4ème B' => 'Mr de SOUZA',
-            '4ème C' => 'Mr AMEGNONA',
-            '4ème D' => 'Mr KOLANI',
+            '4ème A' => 'Mme KEGBENA',
+            '4ème B' => 'Mr KERIM',
+            '4ème C' => 'Mme KIDIYO',
+            //'4ème D' => 'Mr KOLANI',
             '5ème A' => 'Mr YOMBO',
-            '5ème B' => 'Mme KASSOTE',
-            '5ème C' => 'Mme KPELI-POUKPESSI',
-            '5ème D' => 'Mr KERIM',
-            '6ème A' => 'Mr OGBONE',
-            '6ème B' => 'Mr DOLOU',
-            '6ème C' => 'Mme KEGBENA',
-            '6ème D' => 'Mr MINDIZINA',
-            '2nd A4-1' => 'Mr NEBADI',
-            '2nd A4-2' => 'Mr DJIGUI',
-            '2nd CD' => 'Mr ZABOUH',
-            '1ère A4-1' => 'Mme TCHAKOUN',
-            '1ère A4-2' => 'Mme TAKASSI',
-            '1ere D4' => 'Mr LAMBONI',
-            'Tle D4-1' => 'Mr OUDANE',
+            '5ème B' => 'Mr KOSSI',
+            '5ème C' => 'Mr ABLIMI',
+            '5ème D' => 'Mme BISSALOUWE',
+            '6ème A' => 'Mme KPELI-POUKPEZI',
+            '6ème B' => 'Mr MINDIZINA',
+            '6ème C' => 'Mr AMEGNONA',
+            '6ème D' => 'Mme KASSOTE',
+            '2nd A4-1' => 'Mr GOTA',
+            '2nd A4-2' => 'Mr KOLANI',
+            '2nd CD' => 'Mr OUDANE',
+            '1ère A4-1' => 'Mr NEBADI',
+            '1ère A4-2' => 'Mr DJIGUI',
+            '1ère A4-3' => 'Mme TCHAKOUN',
+            '1ere D4' => 'Mr de SOUZA',
+            'Tle D4-1' => 'Mr ZABOUH',
             'Tle D4-2' => 'Mme KOSSI',
             'Tle A4-1' => 'Mr POTCHOWAÏ',
-            'Tle A4-2' => 'Mr GOTA',
-        ];
+            'Tle A4-2' => 'Mr BOKO',
+        ];//prof principaux 2025-2026
         
         return $principalTeachers[$className] ?? 'N/A';
     }

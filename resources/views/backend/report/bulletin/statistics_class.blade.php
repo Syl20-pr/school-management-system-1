@@ -109,6 +109,14 @@
         </thead>
         <tbody>
         @php
+            // Sécurité : forcer l’unicité de la classe
+            $studentData = collect($studentData)
+                ->filter(fn($s) => isset($s['class_id']))
+                ->unique('student_id')
+                ->values();
+        @endphp
+
+        @php
             // Sort students by term mean in descending order
             $rankedStudents = collect($studentData)->sortByDesc('term_mean')->values();
         @endphp

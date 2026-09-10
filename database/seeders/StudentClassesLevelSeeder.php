@@ -44,6 +44,7 @@ class StudentClassesLevelSeeder extends Seeder
             // Classes de 1ère
             ['1ère A4-1', 1, '1ère'],
             ['1ère A4-2', 1, '1ère'],
+            ['1ère A4-3', 1, '1ère'],
             ['1ere D4', 1, '1ère'],
             
             // Classes de Terminale

@@ -1,0 +1,107 @@
+% Architecture du projet - Généré automatiquement
+\documentclass[a4paper,11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{longtable}
+\usepackage{geometry}
+\geometry{margin=25mm}
+\title{Architecture du code source - Nanegbe School Management}
+\author{Extraction automatique}
+\date{\today}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+Ce document décrit l'architecture du projet, le modèle de données, les points d'API REST, les services clefs, les jobs et les statistiques de dépôt destinées à être collées dans l'ANNEXE C.
+\end{abstract}
+
+\section{Résumé technique}
+- Framework: Laravel (PHP 8.2+), Livewire, nombreuses bibliothèques JS/CSS vendues dans `public/assets`.
+- Pattern: MVC + Services + DataObjects/DTOs + Jobs (background) + génération PDF.
+
+\section{Architecture applicative}
+\begin{itemize}
+  \item Contrôleurs HTTP: `app/Http/Controllers` (Backend et Api).
+  \item Modèles Eloquent: `app/Models` (ex: `User`, `Classroom`, `Subject`, `Mark`, `Bulletin`, ...).
+  \item Services métiers: `app/Services` (ex: `BulletinCalculationService`, `PdfGenerationService`).
+  \item Jobs asynchrones: `app/Jobs` (ex: `GenerateBulletinJob`, `GenerateStatisticsJob`).
+  \item Composants Livewire: `app/Livewire` (ex: `AbsenceManager`).
+  \item Actifs front-end: `public/assets` (fournisseurs/vendor, graphiques, éditeurs, etc.).
+\end{itemize}
+
+\section{Diagramme d'architecture (conceptuel)}
+% Utilisez un outil externe pour convertir ceci en diagramme si besoin.
+\begin{verbatim}
+Browser -> Laravel (Routes -> Controllers)
+Controllers -> Services -> Models / Jobs
+Services -> PDF generator / Cache / Storage
+Jobs -> Queue workers -> Services -> Storage
+\end{verbatim}
+
+\section{Modèle de données (extrait)}
+Ci-dessous une liste concentrée des principaux modèles rencontrés et champs représentatifs. Compléter à partir des migrations pour obtenir la liste exhaustive.
+\begin{longtable}{p{4cm} p{10cm}}
+\textbf{Modèle} & \textbf{Champs représentatifs (ex.)} \\
+\hline
+User & id, name, email, password, role(s), created_at, updated_at \\
+Classroom & id, name, capacity, description, created_at, updated_at \\
+Subject & id, name, code, created_at, updated_at \\
+AssignSubject & id, subject_id, teacher_id, class_id, created_at \\
+Mark & id, student_id, subject_id, term, score, max_score, created_at \\
+Bulletin & id, class_id, period, generated_by, file_path, created_at \\
+Attendance & id, student_id, date, status, notes, created_at \\
+Payment / Fee models & id, student_id, amount, type, status, created_at \\
+\end{longtable}
+
+\section{Points d'API REST (extraits)}
+Endpoints découverts (exemples) :
+\begin{itemize}
+  \item GET /api/timetable - `TimeTableApiController@index` : liste des emplois du temps
+  \item GET /api/timetable/{id} - `TimeTableApiController@show` : détails d'un timetable
+  \item GET /api/timetable/teacher/{teacherId} - emploi du temps par enseignant
+  \item GET /api/timetable/class/{classId} - emploi du temps par classe
+  \item Auth/API: `app/Http/Controllers/Api/...` expose d'autres endpoints (auth, élèves, notes, paiements)
+\end{itemize}
+
+\section{Services métiers importants}
+\begin{itemize}
+  \item `BulletinCalculationService` : calcul des bulletins, agrégation des notes, statistiques.
+  \item `PdfGenerationService` : rendu PDF et génération d'archives ZIP pour téléchargement.
+  \item Caches/optimisations : mise en cache des requêtes élèves/statistiques.
+\end{itemize}
+
+\section{Jobs asynchrones}
+\begin{itemize}
+  \item `GenerateBulletinJob` : génère bulletin individuel ou par classe en tâche de fond.
+  \item `GenerateStatisticsJob` : calcule et compile statistiques globales pour impression/export.
+\end{itemize}
+
+\section{Statistiques de dépôt (préliminaires)}
+Fichiers détectés par balayage :
+\begin{itemize}
+  \item Fichiers PHP (approx.) : 461
+  \item Fichiers JavaScript : 2773
+  \item Fichiers CSS : 477
+\end{itemize}
+
+\section{ANNEXE C - Historique Git et statistiques}
+-- À remplacer par le verbatim `git log` et `cloc` fournis localement --
+\subsection*{Instructions pour coller l'historique}
+Collez ici la sortie de ces commandes (verbatim) :
+\begin{verbatim}
+git log --pretty=format:"%h | %ad | %an | %s" --date=short
+git rev-list --all --count
+git shortlog -sne
+cloc .
+\end{verbatim}
+
+Après collage, l'annexe contiendra : compteur de commits, liste des contributeurs, log complet et tableau `cloc` par langage.
+
+\section{Remarques et prochaines étapes}
+\begin{itemize}
+  \item Fournissez les sorties `git` et `cloc` pour que j'insère l'ANNEXE C verbatim.
+  \item Si vous voulez, je peux aussi générer un PDF LaTeX prêt à compiler localement.
+\end{itemize}
+
+\end{document}

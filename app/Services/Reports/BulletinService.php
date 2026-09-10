@@ -6,6 +6,9 @@ use App\Helpers\NumberToWords;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+//use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Log;
+
 
 // Models
 use App\Models\StudentMarks;
@@ -44,7 +47,7 @@ class BulletinService
         $isCycle1 = in_array($termTypeName, ['Trimestre 1','Trimestre 2','Trimestre 3']);
         $isCycle2 = in_array($termTypeName, ['Semestre 1','Semestre 2']);
 
-        $students = $this->getDistinctStudents($yearId, $classId);
+        $students = $this->getDistinctStudents($yearId, $classId)->unique('student_id')->values();
         $subjects = AssignSubject::where('class_id', $classId)
             ->with([
                 'assign_teacher' => function ($q) use ($yearId, $classId) {
@@ -308,7 +311,7 @@ class BulletinService
 
     // ====================== OUTILS / LOGIQUE ======================
 
-    public function getDistinctStudents(int $yearId, int $classId): Collection
+    /* public function getDistinctStudents(int $yearId, int $classId): Collection
     {
         return StudentMarks::where('year_id', $yearId)
             ->where('class_id', $classId)
@@ -319,8 +322,101 @@ class BulletinService
             ->distinct()
             ->orderBy(User::select('name')->whereColumn('users.id','student_id'))
             ->get();
-    }
+    }  */
+/*     public function getDistinctStudents(int $yearId, int $classId): Collection
+{
+    return AssignStudent::where('year_id', $yearId)
+        ->where('class_id', $classId)
+        ->with(['student' => function ($q) {
+            $q->select('id','name','gender','statusclass');
+        }])
+        ->orderBy(User::select('name')->whereColumn('users.id','assign_students.student_id'))
+        ->get()
+        ->map(function ($assign) {
+            return (object) [
+                'student_id' => $assign->student_id,
+                'student'    => $assign->student,
+            ];
+        });
+} */
+public function getDistinctStudents(int $yearId, int $classId): Collection
+{
+    return AssignStudent::where('year_id', $yearId)
+        ->where('class_id', $classId)
+        ->with(['student:id,name,gender,statusclass'])
+        ->get()
+        ->map(function ($assign) {
+            return (object)[
+                'student_id' => $assign->student_id,
+                'student'    => $assign->student,
+            ];
+        });
+}
 
+
+   /* public function getDistinctStudents(int $yearId, int $classId): Collection
+    {
+        // ✅ CORRECTION : Récupérer d'abord les étudiants INSCRITS dans la classe
+        $studentIds = AssignStudent::where('year_id', $yearId)
+            ->where('class_id', $classId)
+            ->pluck('student_id');
+        
+        // Ensuite, vérifier qu'ils ont bien des notes pour le trimestre
+        return StudentMarks::where('year_id', $yearId)
+            ->whereIn('student_id', $studentIds)  // ✅ FILTRE CRITIQUE
+            ->select('student_id')
+            ->distinct()
+            ->with(['student' => function ($q) {
+                $q->select('id','name','gender','statusclass');
+            }])
+            ->orderBy(User::select('name')->whereColumn('users.id','student_id'))
+            ->get();
+    } */
+/* public function getDistinctStudents(int $yearId, int $classId): Collection
+{
+    Log::info("🔍 getDistinctStudents - Classe ID: $classId, Année ID: $yearId");
+    
+    // Méthode 1: Depuis assign_students (RECOMMANDÉE)
+    $students = AssignStudent::where('year_id', $yearId)
+        ->where('class_id', $classId)
+        ->with(['student' => function ($q) {
+            $q->select('id','name','gender','statusclass');
+        }])
+        ->get();
+    
+    Log::info("📊 Étudiants assignés à la classe: " . $students->count());
+    
+    // Transform pour garder la même structure que l'ancienne méthode
+    return $students->map(function($assign) {
+        return (object) [
+            'student_id' => $assign->student_id,
+            'student' => $assign->student
+        ];
+    });
+} */
+/* public function getDistinctStudents(int $yearId, int $classId): Collection
+{
+    Log::info("🔍 getDistinctStudents - Classe ID: $classId, Année ID: $yearId");
+    
+    // ✅ CORRECTION : Récupérer depuis assign_students
+    $assignments = AssignStudent::where('year_id', $yearId)
+        ->where('class_id', $classId)
+        ->with(['student' => function ($q) {
+            $q->select('id','name','gender','statusclass');
+        }])
+        ->get();
+    
+    Log::info("📊 Étudiants inscrits dans la classe: " . $assignments->count());
+    
+    // Transform pour garder la même structure
+    return $assignments->map(function($assign) {
+        return (object) [
+            'student_id' => $assign->student_id,
+            'student' => $assign->student
+        ];
+    });
+}
+ */
     public function getExamMarks(int $yearId, int $classId, int $studentId, int $subjectId, ?int $termTypeId = null): Collection
     {
         $examTypes = $this->getExamTypesForTerm($termTypeId);

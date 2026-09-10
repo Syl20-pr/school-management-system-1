@@ -44,7 +44,7 @@ class ProcessPromotionRequest extends FormRequest
             if ($action === 'exclude' && $targetClass) {
                 $v->errors()->add('target_class', 'La classe de destination ne doit pas être fournie pour une exclusion.');
             }
-        });
+        }); 
     }*/
     
     public function withValidator($validator)
