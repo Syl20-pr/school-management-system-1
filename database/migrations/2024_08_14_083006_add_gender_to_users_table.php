@@ -7,22 +7,27 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Exécution de la migration : ajout de la colonne gender si elle n'existe pas déjà.
+     * Niveau 4 : Intégrité du schéma et compatibilité migrate:fresh.
      */
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('gender')->nullable();
+            if (!Schema::hasColumn('users', 'gender')) {
+                $table->string('gender')->nullable()->comment('Genre de l\'utilisateur (Masculin / Féminin)');
+            }
         });
     }
 
     /**
-     * Reverse the migrations.
+     * Annulation de la migration : suppression de la colonne si présente.
      */
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('gender');
+            if (Schema::hasColumn('users', 'gender')) {
+                $table->dropColumn('gender');
+            }
         });
     }
 };

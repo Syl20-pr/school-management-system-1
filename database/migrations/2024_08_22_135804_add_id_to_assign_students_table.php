@@ -7,22 +7,27 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Exécution de la migration : ajout de la clé primaire id si elle n'existe pas déjà.
+     * Niveau 4 : Garantie d'intégrité du schéma et compatibilité migrate:fresh.
      */
     public function up(): void
     {
         Schema::table('assign_students', function (Blueprint $table) {
-            $table->id()->first();//
+            if (!Schema::hasColumn('assign_students', 'id')) {
+                $table->id()->first();
+            }
         });
     }
 
     /**
-     * Reverse the migrations.
+     * Annulation de la migration : suppression de la clé primaire id.
      */
     public function down(): void
     {
         Schema::table('assign_students', function (Blueprint $table) {
-            $table->dropColumn('id');
+            if (Schema::hasColumn('assign_students', 'id')) {
+                $table->dropColumn('id');
+            }
         });
     }
 };

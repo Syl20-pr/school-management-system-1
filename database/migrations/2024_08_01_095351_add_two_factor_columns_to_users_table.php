@@ -8,20 +8,25 @@ use Laravel\Fortify\Fortify;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Exécution de la migration : ajout des colonnes 2FA si non existantes.
+     * Niveau 4 : Sécurisation de l'intégrité du schéma.
      */
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->text('two_factor_secret')
-                ->after('password')
-                ->nullable();
+            if (!Schema::hasColumn('users', 'two_factor_secret')) {
+                $table->text('two_factor_secret')
+                    ->after('password')
+                    ->nullable();
+            }
 
-            $table->text('two_factor_recovery_codes')
-                ->after('two_factor_secret')
-                ->nullable();
+            if (!Schema::hasColumn('users', 'two_factor_recovery_codes')) {
+                $table->text('two_factor_recovery_codes')
+                    ->after('two_factor_secret')
+                    ->nullable();
+            }
 
-            if (Fortify::confirmsTwoFactorAuthentication()) {
+            if (Fortify::confirmsTwoFactorAuthentication() && !Schema::hasColumn('users', 'two_factor_confirmed_at')) {
                 $table->timestamp('two_factor_confirmed_at')
                     ->after('two_factor_recovery_codes')
                     ->nullable();

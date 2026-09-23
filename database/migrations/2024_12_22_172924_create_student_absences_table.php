@@ -23,8 +23,8 @@ return new class extends Migration
 
             // Relationships
             $table->foreign('student_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('year_id')->references('id')->on('years')->onDelete('set null');
-            $table->foreign('class_id')->references('id')->on('classes')->onDelete('set null');
+            $table->foreign('year_id')->references('id')->on('student_years')->onDelete('set null');
+            $table->foreign('class_id')->references('id')->on('student_classes')->onDelete('set null');
 
             // Indexes
             $table->index(['student_id', 'year_id', 'class_id']);

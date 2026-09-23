@@ -7,22 +7,27 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Exécution de la migration : ajout de la colonne statusclass si elle n'existe pas déjà.
+     * Niveau 4 : Intégrité du schéma et compatibilité migrate:fresh.
      */
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('statusclass')->nullable()->after('gender'); 
+            if (!Schema::hasColumn('users', 'statusclass')) {
+                $table->string('statusclass')->nullable()->after('gender')->comment('Statut de l\'élève dans la classe (Redoublant, Passant, etc.)');
+            }
         });
     }
 
     /**
-     * Reverse the migrations.
+     * Annulation de la migration : suppression de la colonne si présente.
      */
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('statusclass');
+            if (Schema::hasColumn('users', 'statusclass')) {
+                $table->dropColumn('statusclass');
+            }
         });
     }
 };

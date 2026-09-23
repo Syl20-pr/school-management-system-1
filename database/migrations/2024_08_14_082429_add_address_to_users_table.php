@@ -7,22 +7,27 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Exécution de la migration : ajout de la colonne address si elle n'existe pas déjà.
+     * Niveau 4 : Garantie d'intégrité du schéma et compatibilité migrate:fresh.
      */
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('address')->nullable();
+            if (!Schema::hasColumn('users', 'address')) {
+                $table->string('address')->nullable()->comment('Adresse postale ou géographique');
+            }
         });
     }
 
     /**
-     * Reverse the migrations.
+     * Annulation de la migration : suppression de la colonne si présente.
      */
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('address');
+            if (Schema::hasColumn('users', 'address')) {
+                $table->dropColumn('address');
+            }
         });
     }
 };

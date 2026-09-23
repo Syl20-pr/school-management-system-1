@@ -19,11 +19,20 @@ return new class extends Migration
         });
     }
 
-    public function down()
+    /**
+     * Annulation de la migration : suppression sécurisée si la colonne existe.
+     * Niveau 4 : Garantie de rollback sans erreur.
+     */
+    public function down(): void
     {
         Schema::table('exam_types', function (Blueprint $table) {
-            $table->dropForeign(['term_type_id']);
-            $table->dropColumn('term_type_id');
+            if (Schema::hasColumn('exam_types', 'term_type_id')) {
+                // Vérifier et supprimer la contrainte si active
+                try {
+                    $table->dropForeign(['term_type_id']);
+                } catch (\Throwable $e) {}
+                $table->dropColumn('term_type_id');
+            }
         });
     }
 };

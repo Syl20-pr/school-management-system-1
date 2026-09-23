@@ -107,4 +107,38 @@ class User extends Authenticatable
     {
         return $this->hasMany(StudentMarks::class, 'student_id', 'id');
     }
+
+    /**
+     * Établissements scolaires auxquels cet utilisateur est rattaché (Niveau 2 : Multi-tenant RBAC).
+     */
+    public function schools()
+    {
+        return $this->belongsToMany(School::class, 'school_user')
+            ->withPivot('role', 'status', 'joined_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Profils d'élève associés à ce compte utilisateur (Niveau 3 : Découplage des identités).
+     */
+    public function studentProfiles(): HasMany
+    {
+        return $this->hasMany(StudentProfile::class, 'user_id');
+    }
+
+    /**
+     * Profils d'employé associés à ce compte utilisateur (Niveau 3 : Découplage des identités).
+     */
+    public function employeeProfiles(): HasMany
+    {
+        return $this->hasMany(EmployeeProfile::class, 'user_id');
+    }
+
+    /**
+     * Droits d'administration globale de la plateforme SaaS (Niveau 1 : Plateforme centrale).
+     */
+    public function platformAdmin()
+    {
+        return $this->hasOne(PlatformAdmin::class, 'user_id');
+    }
 }
