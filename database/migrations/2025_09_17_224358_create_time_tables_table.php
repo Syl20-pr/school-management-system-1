@@ -4,9 +4,9 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateTimeTablesTable extends Migration
+return new class extends Migration
 {
-    public function up()
+    public function up(): void
     {
         Schema::create('time_tables', function (Blueprint $table) {
             $table->id();
@@ -16,13 +16,13 @@ class CreateTimeTablesTable extends Migration
             $table->enum('term', ['first', 'second', 'third'])->default('first');
             $table->boolean('is_active')->default(false);
             $table->timestamps();
-            
+
             $table->unique(['academic_year_id', 'class_id', 'term']);
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::dropIfExists('time_tables');
     }
-}
+};

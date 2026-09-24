@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\Log;
 use App\Models\AssignStudent;
 use App\Models\StudentPromotionHistory;
 use App\Models\User;
@@ -11,26 +12,26 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::transaction(function() {
+        DB::transaction(function () {
             $this->initializeStatusForAllAssignments();
         });
-        
-        \Log::info("✅ Migration des statuts terminée");
+
+        Log::info('✅ Migration des statuts terminée');
     }
 
-    private function initializeStatusForAllAssignments()
+    private function initializeStatusForAllAssignments(): void
     {
-        // Récupérer tous les élèves
+        // Récupérer tous les élèves distincts inscrits
         $studentIds = AssignStudent::distinct()->pluck('student_id');
-        
+
         foreach ($studentIds as $studentId) {
             $this->processStudentHistory($studentId);
         }
     }
 
-    private function processStudentHistory($studentId)
+    private function processStudentHistory(int $studentId): void
     {
-        // Récupérer toutes les affectations de cet élève, triées par année
+        // Récupérer toutes les affectations de cet élève, triées par année puis par ID
         $assignments = AssignStudent::where('student_id', $studentId)
             ->orderBy('year_id', 'asc')
             ->orderBy('id', 'asc')
@@ -39,11 +40,11 @@ return new class extends Migration
         $previousClassLevel = null;
 
         foreach ($assignments as $index => $assignment) {
-            // ✅ PREMIÈRE AFFECTATION → Toujours 'N'
+            // ✅ PREMIÈRE AFFECTATION → Toujours 'N' (Nouveau)
             if ($index === 0) {
                 $assignment->update(['statusclass' => 'N']);
-                \Log::info("Student {$studentId} - Première affectation → N");
-                
+                Log::info("Student {$studentId} - Première affectation → N");
+
                 $currentClass = StudentClass::find($assignment->class_id);
                 $previousClassLevel = $currentClass ? $currentClass->level : 0;
                 continue;
@@ -63,21 +64,18 @@ return new class extends Migration
             if ($promotionHistory) {
                 // ✅ CAS 1 : Promotion enregistrée
                 $status = ($promotionHistory->action === 'repeat') ? 'D' : 'N';
-                \Log::info("Student {$studentId} - Promotion trouvée: {$promotionHistory->action} → {$status}");
+                Log::info("Student {$studentId} - Promotion trouvée: {$promotionHistory->action} → {$status}");
             } else {
                 // ✅ CAS 2 : Pas de promotion enregistrée, déduire du niveau de classe
                 if ($currentLevel > $previousClassLevel) {
-                    // Niveau supérieur → Promu → Nouveau
-                    $status = 'N';
-                    \Log::info("Student {$studentId} - Niveau supérieur (Prev:{$previousClassLevel}, Curr:{$currentLevel}) → N");
+                    $status = 'N'; // Niveau supérieur → Promu → Nouveau
+                    Log::info("Student {$studentId} - Niveau supérieur (Prev:{$previousClassLevel}, Curr:{$currentLevel}) → N");
                 } elseif ($currentLevel === $previousClassLevel) {
-                    // Même niveau → Redoublant
-                    $status = 'D';
-                    \Log::info("Student {$studentId} - Même niveau ({$currentLevel}) → D");
+                    $status = 'D'; // Même niveau → Redoublant
+                    Log::info("Student {$studentId} - Même niveau ({$currentLevel}) → D");
                 } else {
-                    // Niveau inférieur (rare, mais possible si réorientation)
-                    $status = 'N';
-                    \Log::info("Student {$studentId} - Niveau inférieur → N (réorientation)");
+                    $status = 'N'; // Niveau inférieur (rare : réorientation)
+                    Log::info("Student {$studentId} - Niveau inférieur → N (réorientation)");
                 }
             }
 
@@ -89,6 +87,6 @@ return new class extends Migration
     public function down(): void
     {
         AssignStudent::query()->update(['statusclass' => null]);
-        \Log::info("❌ Statuts réinitialisés");
+        Log::info('❌ Statuts réinitialisés');
     }
 };

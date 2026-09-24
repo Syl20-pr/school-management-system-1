@@ -14,7 +14,9 @@ return new class extends Migration
     {
         Schema::table('assign_subject_teaches', function (Blueprint $table) {
             if (!Schema::hasColumn('assign_subject_teaches', 'class_id')) {
-                $table->integer('class_id')->after('year_id');
+                $table->unsignedBigInteger('class_id')->nullable()->after('year_id')
+                      ->comment('Référence à student_classes.id');
+                $table->foreign('class_id')->references('id')->on('student_classes')->onDelete('set null');
             }
         });
     }

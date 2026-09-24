@@ -13,9 +13,17 @@ return new class extends Migration
     {
         Schema::create('assign_designations', function (Blueprint $table) {
             $table->id();
-            $table->integer('designation_id');
-            $table->string('comment');
+            $table->unsignedBigInteger('designation_id')
+                  ->comment('Référence à designations.id');
+            $table->string('comment')->nullable()
+                  ->comment('Commentaire ou observation liée à cette affectation');
             $table->timestamps();
+
+            // Clé étrangère vers la table des postes/grades
+            $table->foreign('designation_id')
+                  ->references('id')
+                  ->on('designations')
+                  ->onDelete('cascade');
         });
     }
 

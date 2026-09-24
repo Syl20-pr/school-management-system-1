@@ -28,7 +28,7 @@ return new class extends Migration
         // pour chaque employé.
         // NB : Ancien nom erroné = "employee_sallary_logs" (corrigé ici).
         // ---------------------------------------------------------------
-        Schema::create('employee_salary_logs', function (Blueprint $table) {
+        Schema::create('employee_sallary_logs', function (Blueprint $table) {
             $table->id();                                           // Clé primaire auto-incrémentée
 
             // --- Relation employé ---
@@ -47,10 +47,12 @@ return new class extends Migration
     }
 
     /**
-     * Annulation de la migration : suppression de la table employee_salary_logs.
+     * Annulation de la migration : suppression de la table employee_sallary_logs.
+     * NB : Le nom 'employee_sallary_logs' (double l) est conservé intentionnellement
+     * pour la compatibilité avec les migrations suivantes qui y font référence.
      */
     public function down(): void
     {
-        Schema::dropIfExists('employee_salary_logs'); // Suppression du journal des salaires
+        Schema::dropIfExists('employee_sallary_logs'); // Suppression du journal des salaires
     }
 };
